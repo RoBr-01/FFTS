@@ -43,14 +43,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* TODO: add detection/declaration of these to CMake phase */
 #if !defined(FFTS_CPU_X64)
-#if defined(_M_AMD64) || defined(__amd64) || defined(__amd64__) || defined(_M_X64) || defined(__x86_64) || defined(__x86_64__)
+#if defined(_M_AMD64) || defined(__amd64) || defined(__amd64__) || \
+    defined(_M_X64) || defined(__x86_64) || defined(__x86_64__)
 /* 64 bit x86 detected */
 #define FFTS_CPU_X64
 #endif
 #endif
 
 #if !defined(FFTS_CPU_X64) && !defined(FFTS_CPU_X86)
-#if defined(i386) || defined(__i386) || defined(__i386__) || defined(_M_IX86) || defined(__X86__) || defined(_X86_)
+#if defined(i386) || defined(__i386) || defined(__i386__) || \
+    defined(_M_IX86) || defined(__X86__) || defined(_X86_)
 /* 32 bit x86 detected */
 #define FFTS_CPU_X86
 #endif
@@ -81,34 +83,32 @@ Windows 10 Pro - Visual Studio 2017 x86/x64
 #endif
 
 /* bit masks */
-#define FFTS_CPU_X86_SSE_BITS    (BIT(0) | BIT(15) | BIT(23) | BIT(24) | BIT(25))
-#define FFTS_CPU_X86_SSE2_BITS   (BIT(26))
-#define FFTS_CPU_X86_SSE3_BITS   (BIT(0))
-#define FFTS_CPU_X86_SSSE3_BITS  (BIT(9))
+#define FFTS_CPU_X86_SSE_BITS (BIT(0) | BIT(15) | BIT(23) | BIT(24) | BIT(25))
+#define FFTS_CPU_X86_SSE2_BITS (BIT(26))
+#define FFTS_CPU_X86_SSE3_BITS (BIT(0))
+#define FFTS_CPU_X86_SSSE3_BITS (BIT(9))
 #define FFTS_CPU_X86_SSE4_1_BITS (BIT(19))
 #define FFTS_CPU_X86_SSE4_2_BITS (BIT(20) | BIT(23))
-#define FFTS_CPU_X86_AVX_BITS    (BIT(26) | BIT(27) | BIT(28))
-#define FFTS_CPU_X86_XCR0_BITS   (
-#define FFTS_CPU_X86_AVX2_BITS   (BIT(5))
+#define FFTS_CPU_X86_AVX_BITS (BIT(26) | BIT(27) | BIT(28))
+#define FFTS_CPU_X86_XCR0_BITS (BIT(0) | BIT(1) | BIT(2))
+#define FFTS_CPU_X86_AVX2_BITS (BIT(5))
 #define FFTS_CPU_X86_AVX512_BITS (BIT(16))
 
 /* Visual Studio 2008 or older */
 #if defined(FFTS_CPU_X64) && defined(_MSC_VER) && _MSC_VER <= 1500
 #pragma optimize("", off)
-static void __fastcall ffts_cpuidex(int subleaf, int regs[4], int leaf)
-{
+static void __fastcall ffts_cpuidex(int subleaf, int regs[4], int leaf) {
     /* x64 uses a four register fast-call calling convention by default and
        arguments are passed in registers RCX, RDX, R8, and R9. By disabling
        optimization and passing subleaf as first argument we get __cpuidex
     */
-    (void) subleaf;
+    (void)subleaf;
     __cpuid(regs, leaf);
 }
 #pragma optimize("", on)
 #endif
 
-static FFTS_INLINE void ffts_cpuid(int regs[4], int leaf, int subleaf)
-{
+static FFTS_INLINE void ffts_cpuid(int regs[4], int leaf, int subleaf) {
 #if defined(_MSC_VER)
 #if defined(FFTS_CPU_X64)
     /* Visual Studio 2010 or newer */
@@ -158,20 +158,22 @@ static FFTS_INLINE void ffts_cpuid(int regs[4], int leaf, int subleaf)
 #if defined(FFTS_HAVE_XGETBV)
 #pragma optimize("", off)
 #endif
-static FFTS_INLINE unsigned int ffts_get_xcr0(void)
-{
+static FFTS_INLINE unsigned int ffts_get_xcr0(void) {
 #if defined(FFTS_HAVE_XGETBV)
-    return (unsigned int) _xgetbv(0);
+    return (unsigned int)_xgetbv(0);
 #elif defined(_MSC_VER)
 #if defined(FFTS_CPU_X64)
     /* emulate xgetbv(0) on Windows 7 SP1 or newer */
-    typedef DWORD64 (WINAPI *PGETENABLEDXSTATEFEATURES)(VOID);
-    PGETENABLEDXSTATEFEATURES pfnGetEnabledXStateFeatures = 
-        (PGETENABLEDXSTATEFEATURES) GetProcAddress(
-        GetModuleHandle(TEXT("kernel32.dll")), "GetEnabledXStateFeatures");
-    return pfnGetEnabledXStateFeatures ? (unsigned int) pfnGetEnabledXStateFeatures() : 0;
+    typedef DWORD64(WINAPI * PGETENABLEDXSTATEFEATURES)(VOID);
+    PGETENABLEDXSTATEFEATURES pfnGetEnabledXStateFeatures =
+        (PGETENABLEDXSTATEFEATURES)GetProcAddress(
+            GetModuleHandle(TEXT("kernel32.dll")), "GetEnabledXStateFeatures");
+    return pfnGetEnabledXStateFeatures
+               ? (unsigned int)pfnGetEnabledXStateFeatures()
+               : 0;
 #else
-    /* note that we have to touch edx register to tell compiler it's used by emited xgetbv */
+    /* note that we have to touch edx register to tell compiler it's used by
+     * emited xgetbv */
     unsigned __int32 hi, lo;
     __asm {
         xor ecx, ecx
@@ -181,14 +183,14 @@ static FFTS_INLINE unsigned int ffts_get_xcr0(void)
         mov lo, eax
         mov hi, edx
     }
-    return (unsigned int) lo;
+    return (unsigned int)lo;
 #endif
 #elif defined(__GNUC__) && __GNUC__
     unsigned int lo;
     __asm__ __volatile__(".byte 0x0f, 0x01, 0xd0\n"
-        : "=a"(lo)
-        : "c"(0)
-        : "edx");
+                         : "=a"(lo)
+                         : "c"(0)
+                         : "edx");
     return lo;
 #else
     /* unknown x86 compiler */
@@ -199,9 +201,7 @@ static FFTS_INLINE unsigned int ffts_get_xcr0(void)
 #pragma optimize("", on)
 #endif
 
-int
-ffts_cpu_detect(int *extra_flags)
-{
+int ffts_cpu_detect(int* extra_flags) {
     static int cpu_flags = -1;
     static int cpu_extra_flags = -1;
     int max_basic_func;
@@ -240,7 +240,7 @@ ffts_cpu_detect(int *extra_flags)
         mov regs[1 * TYPE regs],ebx
     }
 #else
-    __asm__ (
+    __asm__(
         "pushfl\n\t"
         "pop %0\n\t"
         "movl %0,%1\n\t"
@@ -251,8 +251,7 @@ ffts_cpu_detect(int *extra_flags)
         "popl %0\n\t"
         "pushl %1\n\t"
         "popfl\n\t"
-        : "=r" (regs[0]), "=r" (regs[1])
-    );
+        : "=r"(regs[0]), "=r"(regs[1]));
 #endif
     /* check CPUID bit (bit 21) in EFLAGS register can be toggled */
     if (((regs[0] ^ regs[1]) & 0x200000) == 0) {
@@ -262,7 +261,7 @@ ffts_cpu_detect(int *extra_flags)
         goto exit;
     }
 #if defined(FFTS_BUILDING_CPU_TEST)
-        printf("supported\n");
+    printf("supported\n");
 #endif
 #endif
 
@@ -279,7 +278,11 @@ ffts_cpu_detect(int *extra_flags)
     ffts_cpuid(regs, 1, 0);
 
 #if defined(FFTS_BUILDING_CPU_TEST)
-    printf("cpuid eax=1, ecx=0: eax=%08x ebx=%08x ecx=%08x edx=%08x\n", regs[0], regs[1], regs[2], regs[3]);
+    printf("cpuid eax=1, ecx=0: eax=%08x ebx=%08x ecx=%08x edx=%08x\n",
+           regs[0],
+           regs[1],
+           regs[2],
+           regs[3]);
 #endif
 
 #if defined(FFTS_CPU_X64)
@@ -321,12 +324,13 @@ ffts_cpu_detect(int *extra_flags)
     if ((regs[2] & FFTS_CPU_X86_AVX_BITS) != FFTS_CPU_X86_AVX_BITS)
         goto exit;
 
-    /* test if legaxy x87, 128-bit SSE and 256-bit AVX states are enabled in XCR0 */
+    /* test if legacy x87, 128-bit SSE and 256-bit AVX states are enabled in
+     * XCR0 */
     xcr0 = ffts_get_xcr0();
 #if defined(FFTS_BUILDING_CPU_TEST)
     printf("xcr0: %u\n", xcr0);
 #endif
-    if ((xcr0 & 0x6) != 0x6)
+    if ((xcr0 & FFTS_CPU_X86_XCR0_BITS) != FFTS_CPU_X86_XCR0_BITS)
         goto exit;
 
     cpu_flags |= FFTS_CPU_X86_AVX;
@@ -339,7 +343,11 @@ ffts_cpu_detect(int *extra_flags)
     ffts_cpuid(regs, 7, 0);
 
 #if defined(FFTS_BUILDING_CPU_TEST)
-    printf("cpuid eax=7, ecx=0: eax=%08x ebx=%08x ecx=%08x edx=%08x\n", regs[0], regs[1], regs[2], regs[3]);
+    printf("cpuid eax=7, ecx=0: eax=%08x ebx=%08x ecx=%08x edx=%08x\n",
+           regs[0],
+           regs[1],
+           regs[2],
+           regs[3]);
 #endif
 
     /* test if AVX2 is supported */
@@ -358,14 +366,151 @@ exit:
     }
     return cpu_flags;
 }
-#else 
-int
-ffts_cpu_detect(int *extra_flags)
-{
-    /* not implemented */
-#if defined(FFTS_BUILDING_CPU_TEST)
-    printf("CPU detection not implemented!!\n");
+#elif defined(__arm__) || defined(__aarch64__) || defined(_M_ARM) || \
+    defined(_M_ARM64)
+
+/* ARM / AArch64 CPU feature detection
+ *
+ * On Linux we read /proc/cpuinfo for the "Features" line.
+ * On Apple platforms (iOS / macOS arm64) we use sysctlbyname.
+ * On Windows/ARM we use IsProcessorFeaturePresent.
+ * AArch64 always has NEON (Advanced SIMD) per the architecture spec.
+ */
+
+#if defined(__linux__)
+#include <stdio.h>
+#include <string.h>
+
+static int ffts_arm_read_cpuinfo(void) {
+    FILE* f;
+    char line[1024];
+    int flags = 0;
+
+    f = fopen("/proc/cpuinfo", "r");
+    if (!f)
+        return flags;
+
+    while (fgets(line, sizeof(line), f)) {
+        /* Both 32-bit ARM and AArch64 expose a "Features" line */
+        if (strncmp(line, "Features", 8) != 0)
+            continue;
+
+        if (strstr(line, "neon") || strstr(line, "asimd"))
+            flags |= FFTS_CPU_ARM_NEON;
+#if defined(__aarch64__)
+        /* AArch64 Advanced SIMD (ASIMD) is mandatory */
+        flags |= FFTS_CPU_ARM_NEON | FFTS_CPU_ARM_ASIMD;
+        if (strstr(line, "sve"))
+            flags |= FFTS_CPU_ARM_SVE;
+        if (strstr(line, "sve2"))
+            flags |= FFTS_CPU_ARM_SVE2;
+        if (strstr(line, "asimddp"))
+            flags |= FFTS_CPU_ARM_DOTPROD;
 #endif
+        break;
+    }
+
+    fclose(f);
+    return flags;
+}
+#endif /* __linux__ */
+
+#if defined(__APPLE__)
+#include <sys/sysctl.h>
+
+static int ffts_arm_read_sysctl(void) {
+    int flags = 0;
+    int val = 0;
+    size_t len = sizeof(val);
+
+#if defined(__aarch64__)
+    /* AArch64 Advanced SIMD is always present on Apple Silicon */
+    flags |= FFTS_CPU_ARM_NEON | FFTS_CPU_ARM_ASIMD;
+
+    if (sysctlbyname("hw.optional.arm.FEAT_DotProd", &val, &len, NULL, 0) ==
+            0 &&
+        val)
+        flags |= FFTS_CPU_ARM_DOTPROD;
+    val = 0;
+    len = sizeof(val);
+    if (sysctlbyname("hw.optional.arm.FEAT_SVE", &val, &len, NULL, 0) == 0 &&
+        val)
+        flags |= FFTS_CPU_ARM_SVE;
+    val = 0;
+    len = sizeof(val);
+    if (sysctlbyname("hw.optional.arm.FEAT_SVE2", &val, &len, NULL, 0) == 0 &&
+        val)
+        flags |= FFTS_CPU_ARM_SVE2;
+#else
+    if (sysctlbyname("hw.optional.neon", &val, &len, NULL, 0) == 0 && val)
+        flags |= FFTS_CPU_ARM_NEON;
+#endif
+    return flags;
+}
+#endif /* __APPLE__ */
+
+#if defined(_WIN32)
+#include <windows.h>
+
+static int ffts_arm_read_isprocessorfeature(void) {
+    int flags = 0;
+#if defined(_M_ARM64)
+    /* AArch64 Advanced SIMD is mandatory on Windows/ARM64 */
+    flags |= FFTS_CPU_ARM_NEON | FFTS_CPU_ARM_ASIMD;
+#elif defined(_M_ARM)
+    if (IsProcessorFeaturePresent(PF_ARM_NEON_INSTRUCTIONS_AVAILABLE))
+        flags |= FFTS_CPU_ARM_NEON;
+#endif
+    return flags;
+}
+#endif /* _WIN32 */
+
+int ffts_cpu_detect(int* extra_flags) {
+    static int cpu_flags = -1;
+    static int cpu_extra_flags = -1;
+
+    if (cpu_flags >= 0) {
+        goto exit;
+    }
+
+    cpu_flags = cpu_extra_flags = 0;
+
+#if defined(__aarch64__)
+    /* AArch64 Advanced SIMD (NEON) is mandatory per the architecture spec */
+    cpu_flags |= FFTS_CPU_ARM_NEON | FFTS_CPU_ARM_ASIMD;
+#endif
+
+#if defined(__linux__)
+    cpu_flags |= ffts_arm_read_cpuinfo();
+#elif defined(__APPLE__)
+    cpu_flags |= ffts_arm_read_sysctl();
+#elif defined(_WIN32)
+    cpu_flags |= ffts_arm_read_isprocessorfeature();
+#elif defined(__ARM_NEON__) || defined(__ARM_NEON)
+    /* Compiler reports NEON via preprocessor — trust it as a last resort */
+    cpu_flags |= FFTS_CPU_ARM_NEON;
+#endif
+
+#if defined(FFTS_BUILDING_CPU_TEST)
+    printf("ARM feature detection complete\n");
+#endif
+
+exit:
+    if (extra_flags) {
+        *extra_flags = cpu_extra_flags;
+    }
+    return cpu_flags;
+}
+
+#else
+int ffts_cpu_detect(int* extra_flags) {
+    /* not implemented for this architecture */
+#if defined(FFTS_BUILDING_CPU_TEST)
+    printf("CPU detection not implemented for this architecture\n");
+#endif
+    if (extra_flags) {
+        *extra_flags = 0;
+    }
     return 0;
 }
 #endif

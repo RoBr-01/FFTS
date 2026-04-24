@@ -31,24 +31,32 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #ifndef FFTS_CPU_H
+#define FFTS_CPU_H
 
-#if defined (_MSC_VER) && (_MSC_VER >= 1020)
+#if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
 #endif
 
 #include "ffts_internal.h"
 
-#define FFTS_CPU_X86_SSE    0x001
-#define FFTS_CPU_X86_SSE2   0x002
-#define FFTS_CPU_X86_SSE3   0x004
-#define FFTS_CPU_X86_SSSE3  0x008
+/* x86 / x86-64 feature flags */
+#define FFTS_CPU_X86_SSE 0x001
+#define FFTS_CPU_X86_SSE2 0x002
+#define FFTS_CPU_X86_SSE3 0x004
+#define FFTS_CPU_X86_SSSE3 0x008
 #define FFTS_CPU_X86_SSE4_1 0x010
 #define FFTS_CPU_X86_SSE4_2 0x020
-#define FFTS_CPU_X86_AVX    0x040
-#define FFTS_CPU_X86_AVX2   0x080
+#define FFTS_CPU_X86_AVX 0x040
+#define FFTS_CPU_X86_AVX2 0x080
 #define FFTS_CPU_X86_AVX512 0x100
 
-int
-ffts_cpu_detect(int *extra_flags);
+/* ARM / AArch64 feature flags */
+#define FFTS_CPU_ARM_NEON 0x001000
+#define FFTS_CPU_ARM_ASIMD 0x002000
+#define FFTS_CPU_ARM_SVE 0x004000
+#define FFTS_CPU_ARM_SVE2 0x008000
+#define FFTS_CPU_ARM_DOTPROD 0x010000
+
+int ffts_cpu_detect(int* extra_flags);
 
 #endif /* FFTS_CPU_H */

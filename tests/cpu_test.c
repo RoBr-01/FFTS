@@ -30,12 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
-#include "../src/ffts_cpu.h"
-
 #include <stdio.h>
 
-int main()
-{
+#include "../src/ffts_cpu.h"
+
+int main() {
     int cpu_flags, extra_flags;
 
     cpu_flags = ffts_cpu_detect(&extra_flags);
@@ -51,5 +50,10 @@ int main()
     printf("AVX    : %s\n", (cpu_flags & FFTS_CPU_X86_AVX) ? "yes" : "no");
     printf("AVX2   : %s\n", (cpu_flags & FFTS_CPU_X86_AVX2) ? "yes" : "no");
     printf("AVX512 : %s\n", (cpu_flags & FFTS_CPU_X86_AVX512) ? "yes" : "no");
+    printf("NEON   : %s\n", (cpu_flags & FFTS_CPU_ARM_NEON) ? "yes" : "no");
+    printf("ASIMD  : %s\n", (cpu_flags & FFTS_CPU_ARM_ASIMD) ? "yes" : "no");
+    printf("SVE    : %s\n", (cpu_flags & FFTS_CPU_ARM_SVE) ? "yes" : "no");
+    printf("SVE2   : %s\n", (cpu_flags & FFTS_CPU_ARM_SVE2) ? "yes" : "no");
+    printf("DotProd: %s\n", (cpu_flags & FFTS_CPU_ARM_DOTPROD) ? "yes" : "no");
     return 0;
 }
