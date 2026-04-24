@@ -20,6 +20,19 @@ include_directories(${TARGET_NAME}
     "include"
 )
 
+find_package(PkgConfig REQUIRED)
+
+# Use pkg-config to find GLib
+pkg_check_modules(GLIB REQUIRED glib-2.0)
+if(GLIB_FOUND)
+    add_compile_definitions(HAVE_GLIB)
+    add_compile_options(${GLIB_CFLAGS_OTHER})
+    include_directories(${GLIB_INCLUDE_DIRS})
+    link_directories(${GLIB_LIBRARY_DIRS})
+    set(FFTS_EXTRA_LIBRARIES ${FFTS_EXTRA_LIBRARIES} ${GLIB_LIBRARIES})
+    message(STATUS "GLib found: ${GLIB_VERSION}")
+endif()
+
 # Options
 option(ENABLE_AVX "Enables AVX instructions (testing only)" OFF)
 option(ENABLE_DOUBLE "Enables double precision" OFF)
