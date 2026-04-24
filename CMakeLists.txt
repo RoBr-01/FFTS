@@ -1,70 +1,46 @@
-cmake_minimum_required(VERSION 3.10...3.28)
+cmake_minimum_required(VERSION 3.15...3.28)
 
-project(ffts C ASM)
+project(ffts
+    VERSION 0.9.0
+    DESCRIPTION "The Fastest Fourier Transform in the South"
+    LANGUAGES C ASM
+)
 
-# TODO: to support AutoConfigure building, this should came from "template" file
-set(FFTS_MAJOR 0)
-set(FFTS_MINOR 9)
-set(FFTS_MICRO 0)
-
-set(FFTS_VERSION "${FFTS_MAJOR}.${FFTS_MINOR}.${FFTS_MICRO}")
-
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-# default build type is Debug which means no optimization
+# Set default build type
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release")
-endif(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
 
-# installation parameters
-set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/ffts)
-set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib)
+# Installation directories
+set(INCLUDE_INSTALL_DIR include/ffts)
+set(LIB_INSTALL_DIR lib)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-# common options
-
-# !!!! FOR TESTING ONLY !!!!
-option(ENABLE_AVX
-    "Enables AVX instructions." OFF
-)
-# !!!! FOR TESTING ONLY !!!!
-option(ENABLE_DOUBLE
-    "Enables double precision" OFF
+include_directories(${TARGET_NAME}
+    "include"
 )
 
-option(ENABLE_NEON
-    "Enables the use of NEON instructions." OFF
-)
-
-option(ENABLE_VFP
-    "Enables the use of VFP instructions." OFF
-)
-
-option(DISABLE_DYNAMIC_CODE
-    "Disables the use of dynamic machine code generation." OFF
-)
-
-option(GENERATE_POSITION_INDEPENDENT_CODE
-    "Generate position independent code" OFF
-)
-
-option(ENABLE_SHARED
-    "Enable building a shared library." OFF
-)
-
-option(ENABLE_STATIC
-    "Enable building a static library." ON
-)
+# Options
+option(ENABLE_AVX "Enables AVX instructions (testing only)" OFF)
+option(ENABLE_DOUBLE "Enables double precision" OFF)
+option(ENABLE_NEON "Enables the use of NEON instructions" OFF)
+option(ENABLE_VFP "Enables the use of VFP instructions" OFF)
+option(DISABLE_DYNAMIC_CODE "Disables dynamic machine code generation" OFF)
+option(GENERATE_POSITION_INDEPENDENT_CODE "Generate position independent code" OFF)
+option(ENABLE_SHARED "Enable building a shared library" OFF)
+option(ENABLE_STATIC "Enable building a static library" ON)
 
 include(CheckCSourceCompiles)
 include(CheckCSourceRuns)
 include(CheckFunctionExists)
 include(CheckIncludeFile)
 include(CheckSymbolExists)
+include(CheckCCompilerFlag)
+include(CheckLibraryExists)
 
 # Ensure defined when building FFTS (as opposed to using it from
 # another project). Used to export functions from Windows DLL.
-add_definitions(-DFFTS_BUILD)
+add_compile_definitions(FFTS_BUILD)
 
 # check existence of various headers
 check_include_file(inttypes.h HAVE_INTTYPES_H)
@@ -76,37 +52,21 @@ check_include_file(string.h HAVE_STRING_H)
 check_include_file(sys/mman.h HAVE_SYS_MMAN_H)
 check_include_file(unistd.h HAVE_UNISTD_H)
 
-if(HAVE_INTTYPES_H)
-    add_definitions(-DHAVE_INTTYPES_H)
-endif(HAVE_INTTYPES_H)
+# Helper macro to add compile definitions based on checks
+macro(define_if VAR_NAME DEFINE_NAME)
+    if(${VAR_NAME})
+        add_compile_definitions(${DEFINE_NAME})
+    endif()
+endmacro()
 
-if(HAVE_MALLOC_H)
-    add_definitions(-DHAVE_MALLOC_H)
-endif(HAVE_MALLOC_H)
-
-if(HAVE_MM_MALLOC_H)
-    add_definitions(-DHAVE_MM_MALLOC_H)
-endif(HAVE_MM_MALLOC_H)
-
-if(HAVE_STDINT_H)
-    add_definitions(-DHAVE_STDINT_H)
-endif(HAVE_STDINT_H)
-
-if(HAVE_STDLIB_H)
-    add_definitions(-DHAVE_STDLIB_H)
-endif(HAVE_STDLIB_H)
-
-if(HAVE_STRING_H)
-    add_definitions(-DHAVE_STRING_H)
-endif(HAVE_STRING_H)
-
-if(HAVE_SYS_MMAN_H)
-    add_definitions(-DHAVE_SYS_MMAN_H)
-endif(HAVE_SYS_MMAN_H)
-
-if(HAVE_UNISTD_H)
-    add_definitions(-DHAVE_UNISTD_H)
-endif(HAVE_UNISTD_H)
+define_if(HAVE_INTTYPES_H HAVE_INTTYPES_H)
+define_if(HAVE_MALLOC_H HAVE_MALLOC_H)
+define_if(HAVE_MM_MALLOC_H HAVE_MM_MALLOC_H)
+define_if(HAVE_STDINT_H HAVE_STDINT_H)
+define_if(HAVE_STDLIB_H HAVE_STDLIB_H)
+define_if(HAVE_STRING_H HAVE_STRING_H)
+define_if(HAVE_SYS_MMAN_H HAVE_SYS_MMAN_H)
+define_if(HAVE_UNISTD_H HAVE_UNISTD_H)
 
 # check existence of various declarations
 check_symbol_exists(memalign malloc.h HAVE_DECL_MEMALIGN)
@@ -114,21 +74,10 @@ check_symbol_exists(posix_memalign stdlib.h HAVE_DECL_POSIX_MEMALIGN)
 check_symbol_exists(valloc stdlib.h HAVE_DECL_VALLOC)
 check_symbol_exists(_mm_malloc malloc.h HAVE_DECL__MM_MALLOC)
 
-if(HAVE_DECL_MEMALIGN)
-    add_definitions(-DHAVE_DECL_MEMALIGN)
-endif(HAVE_DECL_MEMALIGN)
-
-if(HAVE_DECL_POSIX_MEMALIGN)
-    add_definitions(-DHAVE_DECL_POSIX_MEMALIGN)
-endif(HAVE_DECL_POSIX_MEMALIGN)
-
-if(HAVE_DECL_VALLOC)
-    add_definitions(-DHAVE_DECL_VALLOC)
-endif(HAVE_DECL_VALLOC)
-
-if(HAVE_DECL__MM_MALLOC)
-    add_definitions(-DHAVE_DECL__MM_MALLOC)
-endif(HAVE_DECL__MM_MALLOC)
+define_if(HAVE_DECL_MEMALIGN HAVE_DECL_MEMALIGN)
+define_if(HAVE_DECL_POSIX_MEMALIGN HAVE_DECL_POSIX_MEMALIGN)
+define_if(HAVE_DECL_VALLOC HAVE_DECL_VALLOC)
+define_if(HAVE_DECL__MM_MALLOC HAVE_DECL__MM_MALLOC)
 
 # check existence of various functions
 check_function_exists(memalign HAVE_MEMALIGN)
@@ -136,21 +85,10 @@ check_function_exists(posix_memalign HAVE_POSIX_MEMALIGN)
 check_function_exists(valloc HAVE_VALLOC)
 check_function_exists(_mm_malloc HAVE__MM_MALLOC)
 
-if(HAVE_MEMALIGN)
-    add_definitions(-DHAVE_MEMALIGN)
-endif(HAVE_MEMALIGN)
-
-if(HAVE_POSIX_MEMALIGN)
-    add_definitions(-DHAVE_POSIX_MEMALIGN)
-endif(HAVE_POSIX_MEMALIGN)
-
-if(HAVE_VALLOC)
-    add_definitions(-DHAVE_VALLOC)
-endif(HAVE_VALLOC)
-
-if(HAVE__MM_MALLOC)
-    add_definitions(-DHAVE__MM_MALLOC)
-endif(HAVE__MM_MALLOC)
+define_if(HAVE_MEMALIGN HAVE_MEMALIGN)
+define_if(HAVE_POSIX_MEMALIGN HAVE_POSIX_MEMALIGN)
+define_if(HAVE_VALLOC HAVE_VALLOC)
+define_if(HAVE__MM_MALLOC HAVE__MM_MALLOC)
 
 # backup flags
 set(CMAKE_REQUIRED_FLAGS_SAVE ${CMAKE_REQUIRED_FLAGS})
@@ -184,20 +122,20 @@ if(NOT CMAKE_CROSSCOMPILING)
                     message(WARNING "FFTS failed to determinate ARM architecture")
                     set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_SAVE})
                 else()
-                    message("FFTS is build using 'march=armv6'")
+                    message(STATUS "FFTS is built using 'march=armv6'")
                     set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv6")
                     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv6")
-                endif(NOT GCC_MARCH_ARMV6_FLAG_SUPPORTED)
+                endif()
             else()
-                message("FFTS is build using 'march=armv7-a'")
+                message(STATUS "FFTS is built using 'march=armv7-a'")
                 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a")
                 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a")
-            endif(NOT GCC_MARCH_ARMV7A_FLAG_SUPPORTED)
+            endif()
         else()
-            message("FFTS is build using 'march=native'")
+            message(STATUS "FFTS is built using 'march=native'")
             set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=native")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
-        endif(NOT GCC_MARCH_NATIVE_FLAG_SUPPORTED)
+        endif()
 
         # Determinate what floating-point hardware (or hardware emulation) is available
         set(CMAKE_REQUIRED_FLAGS_SAVE ${CMAKE_REQUIRED_FLAGS})
@@ -226,19 +164,19 @@ if(NOT CMAKE_CROSSCOMPILING)
             if(NOT NEON_SOFTFP_SUPPORTED)
                 if(ENABLE_NEON)
                     message(FATAL_ERROR "FFTS cannot enable NEON on this platform")
-                endif(ENABLE_NEON)
+                endif()
             else()
-                message("FFTS is using 'neon' FPU and 'softfp' float ABI")
+                message(STATUS "FFTS is using 'neon' FPU and 'softfp' float ABI")
                 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mfpu=neon -mfloat-abi=softfp")
                 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon -mfloat-abi=softfp")
                 set(ENABLE_NEON ON)
-            endif(NOT NEON_SOFTFP_SUPPORTED)
+            endif()
         else()
-            message("FFTS is using 'neon' FPU and 'hard' float ABI")
+            message(STATUS "FFTS is using 'neon' FPU and 'hard' float ABI")
             set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mfpu=neon -mfloat-abi=hard")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon -mfloat-abi=hard")
             set(ENABLE_NEON ON)
-        endif(NOT NEON_HARDFP_SUPPORTED)
+        endif()
 
         # Fallback using VFP if NEON is not supported
         if(NOT NEON_HARDFP_SUPPORTED AND NOT NEON_SOFTFP_SUPPORTED)
@@ -265,16 +203,16 @@ if(NOT CMAKE_CROSSCOMPILING)
                 # Fallback using emulation if VFP is not supported
                 if(ENABLE_VFP)
                     message(FATAL_ERROR "FFTS cannot enable VFP on this platform")
-                endif(ENABLE_VFP)
+                endif()
 
                 message(WARNING "FFTS is using 'soft' FPU")
             else()
-                message("FFTS is using 'vfp' FPU")
+                message(STATUS "FFTS is using 'vfp' FPU")
                 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mfpu=vfp")
                 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp")
                 set(CMAKE_REQUIRED_FLAGS_SAVE ${CMAKE_REQUIRED_FLAGS})
                 set(ENABLE_VFP ON)
-            endif(NOT VFP_SUPPORTED)
+            endif()
 
             # Test running with -mfloat-abi=hard
             set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS_SAVE} -mfloat-abi=hard")
@@ -291,137 +229,125 @@ if(NOT CMAKE_CROSSCOMPILING)
                     # Most likely development libraries are missing
                     message(WARNING "FFTS is using 'soft' float ABI")
                 else()
-                    message("FFTS is using 'softfp' float ABI")
+                    message(STATUS "FFTS is using 'softfp' float ABI")
                     set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mfloat-abi=softfp")
                     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp")
-                endif(NOT SOFTFP_SUPPORTED)
+                endif()
             else()
-                message("FFTS is using 'hard' float ABI")
+                message(STATUS "FFTS is using 'hard' float ABI")
                 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mfloat-abi=hard")
                 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
-            endif(NOT HARDFP_SUPPORTED)
+            endif()
         endif(NOT NEON_HARDFP_SUPPORTED AND NOT NEON_SOFTFP_SUPPORTED)
     else()
         # enable SSE code generation
-        if(CMAKE_COMPILER_IS_GNUCC)
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
             set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS_SAVE} -msse")
-        endif(CMAKE_COMPILER_IS_GNUCC)
+        endif()
 
         # check if the platform has support for SSE intrinsics
         check_include_file(xmmintrin.h HAVE_XMMINTRIN_H)
         if(HAVE_XMMINTRIN_H)
-            add_definitions(-DHAVE_SSE)
+            add_compile_definitions(HAVE_SSE)
             set(CMAKE_REQUIRED_FLAGS_SAVE ${CMAKE_REQUIRED_FLAGS})
 
-            # TODO: not the right place
             if(ENABLE_AVX)
-                add_definitions(-DHAVE_AVX)
-            endif(ENABLE_AVX)
+                add_compile_definitions(HAVE_AVX)
+            endif()
             if(ENABLE_DOUBLE)
-                add_definitions(-DFFTS_DOUBLE)
-            endif(ENABLE_DOUBLE)
-        endif(HAVE_XMMINTRIN_H)
+                add_compile_definitions(FFTS_DOUBLE)
+            endif()
+        endif()
 
         # enable SSE2 code generation
-        if(CMAKE_COMPILER_IS_GNUCC)
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
             set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS_SAVE} -msse2")
-        endif(CMAKE_COMPILER_IS_GNUCC)
+        endif()
 
         # check if the platform has support for SSE2 intrinsics
         check_include_file(emmintrin.h HAVE_EMMINTRIN_H)
         if(HAVE_EMMINTRIN_H)
-            add_definitions(-DHAVE_SSE2)
+            add_compile_definitions(HAVE_SSE2)
             set(CMAKE_REQUIRED_FLAGS_SAVE ${CMAKE_REQUIRED_FLAGS})
-        endif(HAVE_EMMINTRIN_H)
+        endif()
 
         # enable SSE3 code generation
-        if(CMAKE_COMPILER_IS_GNUCC)
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
             set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS_SAVE} -msse3")
-        endif(CMAKE_COMPILER_IS_GNUCC)
+        endif()
 
         # check if the platform has support for SSE3 intrinsics
         check_include_file(pmmintrin.h HAVE_PMMINTRIN_H)
         if(HAVE_PMMINTRIN_H)
-            add_definitions(-DHAVE_PMMINTRIN_H)
-            add_definitions(-DHAVE_SSE3)
+            add_compile_definitions(HAVE_PMMINTRIN_H HAVE_SSE3)
             set(CMAKE_REQUIRED_FLAGS_SAVE ${CMAKE_REQUIRED_FLAGS})
         else()
             # check if the platform has specific intrinsics
             check_include_file(intrin.h HAVE_INTRIN_H)
             if(HAVE_INTRIN_H)
-                add_definitions(-DHAVE_INTRIN_H)
+                add_compile_definitions(HAVE_INTRIN_H)
 
-                check_c_source_compiles("
-          #include<intrin.h>
-          int main(int argc, char** argv)
-          {
-           (void) argv;
-           (void) argc;
-           return _mm_movemask_ps(_mm_moveldup_ps(_mm_set_ss(1.0f)));
-          }"                    HAVE__MM_MOVELDUP_PS
-                )
+                check_c_source_compiles(
+                    "#include<intrin.h>
+                    int main(int argc, char** argv) {
+                        (void) argv; (void) argc;
+                        return _mm_movemask_ps(_mm_moveldup_ps(_mm_set_ss(1.0f)));
+                    }"
+                    HAVE__MM_MOVELDUP_PS)
 
                 if(HAVE__MM_MOVELDUP_PS)
                     # assume that we have all SSE3 intrinsics
-                    add_definitions(-DHAVE_SSE3)
-                endif(HAVE__MM_MOVELDUP_PS)
-            endif(HAVE_INTRIN_H)
-        endif(HAVE_PMMINTRIN_H)
-    endif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+                    add_compile_definitions(HAVE_SSE3)
+                endif()
+            endif()
+        endif()
+    endif()
 else()
     # TODO: Add detections for compiler support and headers
-endif(NOT CMAKE_CROSSCOMPILING)
+endif()
 
 # restore flags
 set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_SAVE})
 
-# compiler settings
+# Compiler-specific settings
 if(MSVC)
     # enable all warnings but also disable some..
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4 /wd4127")
+    add_compile_options(/W4 /wd4127)
 
     # mark debug versions
     set(CMAKE_DEBUG_POSTFIX "d")
 
-    add_definitions(-D_USE_MATH_DEFINES)
-elseif(CMAKE_COMPILER_IS_GNUCC)
-    include(CheckCCompilerFlag)
-    include(CheckLibraryExists)
-
+    add_compile_definitions(_USE_MATH_DEFINES)
+elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     # enable all warnings
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+    add_compile_options(-Wall -Wextra)
 
     # check if we can control visibility of symbols
     check_c_compiler_flag(-fvisibility=hidden HAVE_GCC_VISIBILITY)
     if(HAVE_GCC_VISIBILITY)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
-        add_definitions(-DHAVE_GCC_VISIBILITY)
-    endif(HAVE_GCC_VISIBILITY)
+        add_compile_options(-fvisibility=hidden)
+        add_compile_definitions(HAVE_GCC_VISIBILITY)
+    endif()
 
     # some systems need libm for the math functions to work
     check_library_exists(m pow "" HAVE_LIBM)
     if(HAVE_LIBM)
-        list(APPEND CMAKE_REQUIRED_LIBRARIES m)
-        list(APPEND FFTS_EXTRA_LIBRARIES m)
-    endif(HAVE_LIBM)
+        set(FFTS_EXTRA_LIBRARIES m)
+    endif()
 
     if(HAVE_PMMINTRIN_H)
-        add_definitions(-msse3)
+        add_compile_options(-msse3)
     elseif(HAVE_EMMINTRIN_H)
-        add_definitions(-msse2)
+        add_compile_options(-msse2)
     elseif(HAVE_XMMINTRIN_H)
-        add_definitions(-msse)
-    endif(HAVE_PMMINTRIN_H)
-endif(MSVC)
-
-include_directories(include)
-include_directories(src)
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
+        add_compile_options(-msse)
+    endif()
+endif()
 
 # On macOS/Apple Clang, disable inline NEON assembly as the register naming differs
 if(APPLE)
     add_compile_options(-U__ARM_NEON__)
-endif(APPLE)
+endif()
 
 set(FFTS_HEADERS
     include/ffts.h
@@ -454,163 +380,123 @@ set(FFTS_SOURCES
 
 if(NOT DISABLE_DYNAMIC_CODE)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64.*|x86_64.*|AMD64.*")
-        list(APPEND FFTS_SOURCES
-            src/codegen_sse.h
-        )
+        list(APPEND FFTS_SOURCES src/codegen_sse.h)
     else()
         message(WARNING "Dynamic code is only supported with x64, disabling dynamic code.")
         set(DISABLE_DYNAMIC_CODE ON)
-    endif(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64.*|x86_64.*|AMD64.*")
-endif(NOT DISABLE_DYNAMIC_CODE)
+    endif()
+endif()
 
 if(ENABLE_NEON)
-    list(APPEND FFTS_SOURCES
-        src/neon.s
-    )
+    list(APPEND FFTS_SOURCES src/neon.s)
 
     if(DISABLE_DYNAMIC_CODE)
-        list(APPEND FFTS_SOURCES
-            src/neon_static.s
-        )
-    endif(DISABLE_DYNAMIC_CODE)
+        list(APPEND FFTS_SOURCES src/neon_static.s)
+    endif()
 
-    add_definitions(-DHAVE_NEON)
+    add_compile_definitions(HAVE_NEON)
 elseif(ENABLE_VFP)
     if(NOT DISABLE_DYNAMIC_CODE)
-        list(APPEND FFTS_SOURCES
-            src/vfp.s
-        )
-    endif(NOT DISABLE_DYNAMIC_CODE)
+        list(APPEND FFTS_SOURCES src/vfp.s)
+    endif()
 
-    add_definitions(-DHAVE_VFP)
+    add_compile_definitions(HAVE_VFP)
 elseif(HAVE_XMMINTRIN_H)
-    add_definitions(-DHAVE_SSE)
+    add_compile_definitions(HAVE_SSE)
 
-    list(APPEND FFTS_SOURCES
-        src/macros-avx.h
-        src/macros-sse.h
-    )
-endif(ENABLE_NEON)
+    list(APPEND FFTS_SOURCES src/macros-avx.h src/macros-sse.h)
+endif()
 
 if(DISABLE_DYNAMIC_CODE)
-    add_definitions(-DDYNAMIC_DISABLED)
+    add_compile_definitions(DYNAMIC_DISABLED)
 else()
-    list(APPEND FFTS_SOURCES
-        src/codegen.c
-        src/codegen.h
-    )
-endif(DISABLE_DYNAMIC_CODE)
+    list(APPEND FFTS_SOURCES src/codegen.c src/codegen.h)
+endif()
 
 if(GENERATE_POSITION_INDEPENDENT_CODE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-endif(GENERATE_POSITION_INDEPENDENT_CODE)
+endif()
 
 if(ENABLE_SHARED)
-    add_library(ffts_shared SHARED
-        ${FFTS_HEADERS}
-        ${FFTS_SOURCES}
-    )
+    add_library(ffts_shared SHARED ${FFTS_HEADERS} ${FFTS_SOURCES})
 
     # On unix-like platforms the library is called "libffts.so" and on Windows "ffts.dll"
     set_target_properties(ffts_shared PROPERTIES
         DEFINE_SYMBOL FFTS_SHARED
         OUTPUT_NAME ffts
-        VERSION ${FFTS_MAJOR}.${FFTS_MINOR}.${FFTS_MICRO}
+        VERSION ${PROJECT_VERSION}
     )
 
     install(TARGETS ffts_shared DESTINATION ${LIB_INSTALL_DIR})
-endif(ENABLE_SHARED)
+endif()
 
 if(ENABLE_STATIC)
-    add_library(ffts_static STATIC
-        ${FFTS_HEADERS}
-        ${FFTS_SOURCES}
-    )
+    add_library(ffts_static STATIC ${FFTS_HEADERS} ${FFTS_SOURCES})
 
     if(UNIX)
         # On unix-like platforms the library is called "libffts.a"
         set_target_properties(ffts_static PROPERTIES OUTPUT_NAME ffts)
-    endif(UNIX)
+    endif()
 
     install(TARGETS ffts_static DESTINATION ${LIB_INSTALL_DIR})
-endif(ENABLE_STATIC)
+endif()
 
 if(ENABLE_STATIC OR ENABLE_SHARED)
-    find_path(MPFR_INCLUDES
-        NAMES mpfr.h
-        PATHS ${INCLUDE_INSTALL_DIR}
-    )
+    find_path(MPFR_INCLUDES NAMES mpfr.h PATHS ${INCLUDE_INSTALL_DIR})
     find_library(MPFR_LIBRARIES mpfr PATHS ${LIB_INSTALL_DIR})
-    find_package(OpenMP)
+    find_package(OpenMP QUIET)
 
     if(MPFR_INCLUDES)
-        add_definitions(-DHAVE_MPFR_H)
+        add_compile_definitions(HAVE_MPFR_H)
         include_directories(${MPFR_INCLUDES})
-    endif(MPFR_INCLUDES)
+    endif()
 
-    add_executable(ffts_trig_test
-        tests/trig_test.c
+    add_executable(ffts_trig_test tests/trig_test.c)
+    target_link_libraries(ffts_trig_test
+        PRIVATE
+        $<IF:$<BOOL:${ENABLE_STATIC}>,ffts_static,ffts_shared>
+        ${MPFR_LIBRARIES}
+        ${FFTS_EXTRA_LIBRARIES}
     )
-
-    target_link_libraries(ffts_trig_test ffts)
-    if(MPFR_LIBRARIES)
-        target_link_libraries(ffts_trig_test ${MPFR_LIBRARIES})
-    endif(MPFR_LIBRARIES)
 
     if(OPENMP_FOUND)
-        if(MSVC)
-            set_target_properties(ffts_trig_test PROPERTIES
-                COMPILE_FLAGS "${OpenMP_C_FLAGS}"
-                LINK_FLAGS "${OpenMP_EXE_LINKER_FLAGS}"
-            )
-        else()
-            set_target_properties(ffts_trig_test PROPERTIES
-                COMPILE_FLAGS "${OpenMP_C_FLAGS}"
-                LINK_FLAGS "${OpenMP_C_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}"
-            )
-        endif(MSVC)
-    endif(OPENMP_FOUND)
+        target_link_libraries(ffts_trig_test PRIVATE OpenMP::C)
+    endif()
 
-    add_executable(ffts_test
-        tests/test.c
-    )
+    add_executable(ffts_test tests/test.c)
 
     # link with static library by default
     if(ENABLE_STATIC)
         add_library(ffts ALIAS ffts_static)
     else()
         add_library(ffts ALIAS ffts_shared)
-    endif(ENABLE_STATIC)
+    endif()
 
     target_link_libraries(ffts_test
+        PRIVATE
         ffts
         ${FFTS_EXTRA_LIBRARIES}
     )
 
-    add_executable(ffts_cpu_test
-        src/ffts_cpu.c
-        src/ffts_cpu.h
-        tests/cpu_test.c
-    )
-
-    set_target_properties(ffts_cpu_test PROPERTIES COMPILE_DEFINITIONS FFTS_BUILDING_CPU_TEST)
-endif(ENABLE_STATIC OR ENABLE_SHARED)
+    add_executable(ffts_cpu_test src/ffts_cpu.c src/ffts_cpu.h tests/cpu_test.c)
+    target_compile_definitions(ffts_cpu_test PRIVATE FFTS_BUILDING_CPU_TEST)
+    target_link_libraries(ffts_cpu_test PRIVATE ${FFTS_EXTRA_LIBRARIES})
+endif()
 
 # generate packageconfig file
 if(UNIX)
     include(FindPkgConfig QUIET)
     if(PKG_CONFIG_FOUND)
         # convert lists of link libraries into -lstdc++ -lm etc..
-        foreach(LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES} ${PLATFORM_LIBS})
-            set(PRIVATE_LIBS "${PRIVATE_LIBS} -l${LIB}")
+        foreach(LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES} ${FFTS_EXTRA_LIBRARIES})
+            string(APPEND PRIVATE_LIBS " -l${LIB}")
         endforeach()
         # Produce a pkg-config file for linking against the shared lib
         configure_file("ffts.pc.cmake.in" "ffts.pc" @ONLY)
         install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ffts.pc"
             DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig")
-    endif(PKG_CONFIG_FOUND)
-endif(UNIX)
+    endif()
+endif()
 
-install(FILES
-    ${FFTS_HEADERS}
-    DESTINATION ${INCLUDE_INSTALL_DIR})
+# Install headers
+install(FILES ${FFTS_HEADERS} DESTINATION ${INCLUDE_INSTALL_DIR})
