@@ -32,6 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "ffts_cpu.h"
 
+#include <string.h>
+
 #if defined(FFTS_BUILDING_CPU_TEST)
 #include <stdio.h>
 #endif
@@ -513,4 +515,140 @@ int ffts_cpu_detect(int* extra_flags) {
     }
     return 0;
 }
+#endif
+
+/* =========================================================================
+ * ffts_cpu_get_name
+ *
+ * x86/x64 : CPUID extended brand string (leaves 0x80000002-0x80000004),
+ *            the most authoritative source, no file I/O required.
+ * ARM/AArch64 Linux  : "Hardware" line from /proc/cpuinfo.
+ * ARM/AArch64 Apple  : sysctlbyname("machdep.cpu.brand_string").
+ * ARM/AArch64 Windows: registry key under
+ *                      HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0.
+ * Fallback           : "Unknown".
+ * ========================================================================= */
+
+#if defined(FFTS_CPU_X64) || defined(FFTS_CPU_X86)
+
+const char* ffts_cpu_get_name(void) {
+    /* 3 leaves x 4 registers x 4 bytes + NUL = 49 bytes; use 64 for alignment
+     */
+    static char cpu_name[64] = {0};
+    int regs[4];
+    unsigned int i;
+
+    if (cpu_name[0] != '\0')
+        return cpu_name;
+
+    /* check extended CPUID is available and brand string leaves are present */
+    ffts_cpuid(regs, 0x80000000, 0);
+    if ((unsigned int)regs[0] < 0x80000004) {
+        return "Unknown";
+    }
+
+    for (i = 0; i < 3; i++) {
+        ffts_cpuid(regs, 0x80000002 + i, 0);
+        /* each leaf returns 16 bytes of the brand string across eax/ebx/ecx/edx
+         */
+        memcpy(cpu_name + i * 16 + 0, &regs[0], 4);
+        memcpy(cpu_name + i * 16 + 4, &regs[1], 4);
+        memcpy(cpu_name + i * 16 + 8, &regs[2], 4);
+        memcpy(cpu_name + i * 16 + 12, &regs[3], 4);
+    }
+    cpu_name[48] = '\0';
+
+    /* the brand string is often padded with leading spaces — skip them */
+    {
+        const char* p = cpu_name;
+        while (*p == ' ')
+            p++;
+        if (p != cpu_name)
+            memmove(cpu_name, p, strlen(p) + 1);
+    }
+
+    return cpu_name;
+}
+
+#elif defined(__arm__) || defined(__aarch64__) || defined(_M_ARM) || \
+    defined(_M_ARM64)
+
+const char* ffts_cpu_get_name(void) {
+    static char cpu_name[128] = {0};
+
+    if (cpu_name[0] != '\0')
+        return cpu_name;
+
+#if defined(__linux__)
+    {
+        FILE* f = fopen("/proc/cpuinfo", "r");
+        char line[256];
+        if (f) {
+            while (fgets(line, sizeof(line), f)) {
+                /* "Hardware" is present on most ARM Linux kernels and gives
+                   the board/SoC name (e.g. "Hardware : Raspberry Pi 4").
+                   On AArch64 servers "Model name" may also appear. */
+                if (strncmp(line, "Hardware", 8) == 0 ||
+                    strncmp(line, "Model name", 10) == 0) {
+                    char* colon = strchr(line, ':');
+                    if (colon) {
+                        /* skip colon and whitespace */
+                        colon++;
+                        while (*colon == ' ' || *colon == '\t')
+                            colon++;
+                        strncpy(cpu_name, colon, sizeof(cpu_name) - 1);
+                        cpu_name[sizeof(cpu_name) - 1] = '\0';
+                        /* strip trailing newline */
+                        {
+                            size_t len = strlen(cpu_name);
+                            while (len > 0 && (cpu_name[len - 1] == '\n' ||
+                                               cpu_name[len - 1] == '\r'))
+                                cpu_name[--len] = '\0';
+                        }
+                        break;
+                    }
+                }
+            }
+            fclose(f);
+        }
+    }
+#elif defined(__APPLE__)
+    {
+        size_t len = sizeof(cpu_name);
+        if (sysctlbyname("machdep.cpu.brand_string", cpu_name, &len, NULL, 0) !=
+            0)
+            cpu_name[0] = '\0';
+    }
+#elif defined(_WIN32)
+    {
+        HKEY hKey;
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+                          "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+                          0,
+                          KEY_READ,
+                          &hKey) == ERROR_SUCCESS) {
+            DWORD type, size = (DWORD)sizeof(cpu_name);
+            RegQueryValueExA(hKey,
+                             "ProcessorNameString",
+                             NULL,
+                             &type,
+                             (LPBYTE)cpu_name,
+                             &size);
+            RegCloseKey(hKey);
+        }
+    }
+#endif
+
+    if (cpu_name[0] == '\0')
+        strncpy(cpu_name, "Unknown", sizeof(cpu_name) - 1);
+
+    return cpu_name;
+}
+
+#else
+
+const char* ffts_cpu_get_name(void) {
+    return "Unknown";
+}
+
 #endif

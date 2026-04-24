@@ -41,6 +41,10 @@ int main() {
     if (!cpu_flags)
         return 1;
 
+    const char* cpu_name = ffts_cpu_get_name();
+
+    printf("CPU    : %s\n", cpu_name);
+
     printf("SSE    : %s\n", (cpu_flags & FFTS_CPU_X86_SSE) ? "yes" : "no");
     printf("SSE2   : %s\n", (cpu_flags & FFTS_CPU_X86_SSE2) ? "yes" : "no");
     printf("SSE3   : %s\n", (cpu_flags & FFTS_CPU_X86_SSE3) ? "yes" : "no");

@@ -59,4 +59,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 int ffts_cpu_detect(int* extra_flags);
 
+/* Returns a static string with a human-readable CPU name/identifier.
+   Never returns NULL; falls back to "Unknown" if detection fails. */
+const char* ffts_cpu_get_name(void);
+
 #endif /* FFTS_CPU_H */
